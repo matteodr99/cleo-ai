@@ -20,6 +20,7 @@
     --ai-bubble: #111118;
     --mono: 'Space Mono', monospace;
     --sans: 'DM Sans', sans-serif;
+    --error: #ff4d4f;
   }
 
   * { box-sizing: border-box; margin: 0; padding: 0; }
@@ -212,7 +213,68 @@
   #send-btn:disabled { opacity: 0.4; cursor: not-allowed; transform: scale(1); }
 
   .input-hint { font-family: var(--mono); font-size: 10px; color: var(--text-muted); text-align: center; margin-top: 8px; letter-spacing: 0.04em; }
-  .error-bubble { background: rgba(255, 60, 80, 0.08); border: 1px solid rgba(255, 60, 80, 0.25); color: #ff6b7a; padding: 10px 14px; border-radius: 8px; font-size: 13px; }
+  .error-bubble {
+    background: var(--surface2);
+    border: 1px solid var(--accent);
+    color: var(--accent);
+    padding: 12px 16px;
+    border-radius: 10px;
+    font-size: 14px;
+    display: flex;
+    align-items: center;
+    justify-content: space-between;
+    gap: 12px;
+    position: relative;
+    min-width: 220px;
+    max-width: 480px;
+    box-shadow: 0 2px 12px 0 rgba(124,110,255,0.07);
+  }
+
+  .error-bubble .error-text {
+    flex: 1;
+    color: var(--accent);
+    word-break: break-word;
+    font-weight: 500;
+    letter-spacing: 0.01em;
+  }
+  .error-bubble .retry-btn {
+    background: none;
+    border: none;
+    color: var(--accent);
+    font-size: 20px;
+    cursor: pointer;
+    padding: 4px 6px;
+    border-radius: 6px;
+    display: flex;
+    align-items: center;
+    transition: background 0.2s;
+    position: absolute;
+    right: -50px
+  }
+  .error-bubble .retry-btn .tooltip {
+    visibility: hidden;
+    opacity: 0;
+    background: var(--surface);
+    color: var(--text);
+    text-align: center;
+    border-radius: 6px;
+    padding: 4px 10px;
+    position: absolute;
+    z-index: 10;
+    right: 110%;
+    top: 50%;
+    transform: translateY(-50%);
+    font-size: 12px;
+    font-family: var(--sans);
+    box-shadow: 0 2px 8px 0 rgba(0,0,0,0.10);
+    transition: opacity 0.2s;
+    pointer-events: none;
+    white-space: nowrap;
+  }
+  .error-bubble .retry-btn:hover .tooltip {
+    visibility: visible;
+    opacity: 1;
+  }
 </style>
 </head>
 <body>
@@ -227,44 +289,44 @@
   </div>
   <div class="header-actions">
     <div class="status-dot"></div>
-    <button class="btn-clear" onclick="clearChat()">NEW CHAT</button>
+    <button class="btn-clear" onclick="clearChat()">NUOVA CHAT</button>
   </div>
 </header>
 
 <div class="layout">
   <aside class="sidebar">
-    <div class="sidebar-label">MCP Tools</div>
-    <div class="tool-chip"><span class="icon">📁</span>File System</div>
-    <div class="tool-chip"><span class="icon">🔍</span>Web Search</div>
+    <div class="sidebar-label">Strumenti MCP</div>
+    <div class="tool-chip"><span class="icon">📁</span>Sistema di File</div>
+    <div class="tool-chip"><span class="icon">🔍</span>Ricerca Web</div>
     <div class="tool-chip"><span class="icon">🗄️</span>Database SQL</div>
-    <div class="tool-chip"><span class="icon">🌐</span>External APIs</div>
+    <div class="tool-chip"><span class="icon">🌐</span>API Esterne</div>
 
-    <div class="sidebar-label" style="margin-top: 16px;">Suggestions</div>
-    <button class="suggestion-btn" onclick="sendSuggestion(this)">📅 What time is it in Rome?</button>
-    <button class="suggestion-btn" onclick="sendSuggestion(this)">🌤️ Weather in Milan today</button>
-    <button class="suggestion-btn" onclick="sendSuggestion(this)">📝 Create a note "To do"</button>
-    <button class="suggestion-btn" onclick="sendSuggestion(this)">✅ Add task: buy groceries</button>
-    <button class="suggestion-btn" onclick="sendSuggestion(this)">📋 Show all notes</button>
-    <button class="suggestion-btn" onclick="sendSuggestion(this)">🔍 Search: artificial intelligence</button>
-    <button class="suggestion-btn" onclick="sendSuggestion(this)">📂 List available files</button>
+    <div class="sidebar-label" style="margin-top: 16px;">Suggerimenti</div>
+    <button class="suggestion-btn" onclick="sendSuggestion(this)">📅 Che ore sono a Roma?</button>
+    <button class="suggestion-btn" onclick="sendSuggestion(this)">🌤️ Meteo a Milano oggi</button>
+    <button class="suggestion-btn" onclick="sendSuggestion(this)">📝 Crea una nota "Da fare"</button>
+    <button class="suggestion-btn" onclick="sendSuggestion(this)">✅ Aggiungi attività: comprare generi alimentari</button>
+    <button class="suggestion-btn" onclick="sendSuggestion(this)">📋 Mostra tutte le note</button>
+    <button class="suggestion-btn" onclick="sendSuggestion(this)">🔍 Cerca: intelligenza artificiale</button>
+    <button class="suggestion-btn" onclick="sendSuggestion(this)">📂 Elenca i file disponibili</button>
   </aside>
 
   <div class="chat-area">
     <div id="messages">
       <div class="welcome" id="welcome">
         <span class="welcome-icon">✦</span>
-        <h2>Hi, I'm Cleo</h2>
-        <p>I can help you with files, web searches,<br>databases and real-time information.</p>
+        <h2>Salve, io sono Cleo</h2>
+        <p>Posso aiutarti con file, ricerche web,<br>database e informazioni in tempo reale.</p>
       </div>
     </div>
 
     <div class="input-area">
       <div class="input-wrapper">
-        <textarea id="user-input" placeholder="Write a message..." rows="1"
+        <textarea id="user-input" placeholder="Scrivi un messaggio..." rows="1"
           onkeydown="handleKey(event)" oninput="autoResize(this)"></textarea>
         <button id="send-btn" onclick="sendMessage()">↑</button>
       </div>
-      <div class="input-hint">Enter to send · Shift+Enter for new line</div>
+      <div class="input-hint">Invia per confermare · Maiusc+Invio per nuova riga</div>
     </div>
   </div>
 </div>
@@ -272,6 +334,7 @@
 <script>
   const SESSION_ID = 'session_' + Date.now();
   let isLoading = false;
+  let lastMessage = null;  // Memorizza l'ultimo messaggio per il retry
 
   function autoResize(el) {
     el.style.height = 'auto';
@@ -293,17 +356,54 @@
     if (w) w.remove();
   }
 
+  async function retryLastMessage() {
+    if (!lastMessage || isLoading) return;
+    appendMessage('user', lastMessage);
+    isLoading = true;
+    document.getElementById('send-btn').disabled = true;
+    showTyping();
+    try {
+      const res = await fetch('/api/chat', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ message: lastMessage, session_id: SESSION_ID })
+      });
+      const data = await res.json();
+      removeTyping();
+      if (data.error) {
+        appendMessage('assistant', `⚠️ Errore: ${data.error}`, true);
+      } else {
+        appendMessage('assistant', data.response);
+      }
+    } catch (err) {
+      removeTyping();
+      appendMessage('assistant', `⚠️ Errore di connessione: ${err.message}`, true);
+    } finally {
+      isLoading = false;
+      document.getElementById('send-btn').disabled = false;
+      document.getElementById('user-input').focus();
+    }
+  }
+
   function appendMessage(role, content, isError = false) {
     removeWelcome();
     const container = document.getElementById('messages');
     const div = document.createElement('div');
     div.className = `msg ${role}`;
     const avatar = role === 'user' ? '👤' : '✦';
-    const bubbleContent = isError
-      ? `<div class="error-bubble">${content}</div>`
-      : `<div class="bubble">${formatText(content)}</div>`;
-    div.innerHTML = `<div class="avatar">${avatar}</div>${bubbleContent}`;
-    container.appendChild(div);
+    let bubbleContent;
+    if (isError) {
+      // Bubble errore con icona moderna (Material Design refresh)
+      const refreshIcon = `<svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M23 4v6h-6"/><path d="M1 20v-6h6"/><path d="M3.51 9a9 9 0 0 1 14.13-3.36L23 10"/><path d="M20.49 15A9 9 0 0 1 5.87 18.36L1 14"/></svg>`;
+      bubbleContent = `<div class=\"error-bubble\"><span class=\"error-text\">${content}</span><button class=\"retry-btn\" onclick=\"retryLastMessage()\" aria-label=\"Riprova\">${refreshIcon}<span class=\"tooltip\">Riprova</span></button></div>`;
+      div.innerHTML = `<div class=\"avatar\">${avatar}</div>${bubbleContent}`;
+      container.appendChild(div);
+    } else {
+      bubbleContent = `<div class=\"bubble\">${formatText(content)}</div>`;
+      div.innerHTML = `<div class=\"avatar\">${avatar}</div>${bubbleContent}`;
+      container.appendChild(div);
+    }
+
     container.scrollTop = container.scrollHeight;
   }
 
@@ -343,6 +443,7 @@
     isLoading = true;
     document.getElementById('send-btn').disabled = true;
     showTyping();
+    lastMessage = message;  // Salva l'ultimo messaggio inviato
     try {
       const res = await fetch('/api/chat', {
         method: 'POST',
@@ -352,13 +453,13 @@
       const data = await res.json();
       removeTyping();
       if (data.error) {
-        appendMessage('assistant', `⚠️ Error: ${data.error}`, true);
+        appendMessage('assistant', `⚠️ Errore: ${data.error}`, true);
       } else {
         appendMessage('assistant', data.response);
       }
     } catch (err) {
       removeTyping();
-      appendMessage('assistant', `⚠️ Connection error: ${err.message}`, true);
+      appendMessage('assistant', `⚠️ Errore di connessione: ${err.message}`, true);
     } finally {
       isLoading = false;
       document.getElementById('send-btn').disabled = false;
@@ -375,8 +476,8 @@
     document.getElementById('messages').innerHTML = `
       <div class="welcome" id="welcome">
         <span class="welcome-icon">✦</span>
-        <h2>Hi, I'm Cleo</h2>
-        <p>I can help you with files, web searches,<br>databases and real-time information.</p>
+        <h2>Salve, io sono Cleo</h2>
+        <p>Posso aiutarti con file, ricerche web,<br>database e informazioni in tempo reale.</p>
       </div>`;
   }
 

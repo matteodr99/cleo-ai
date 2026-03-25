@@ -1,6 +1,6 @@
 """
 Backend Flask - Cleo
-Uses Google Gemini API + MCP Server
+Uses Google Gemini API (google-genai SDK) + MCP Server
 """
 
 import asyncio
@@ -8,90 +8,93 @@ import json
 import os
 import subprocess
 import sys
+import time
 from pathlib import Path
 from flask import Flask, request, jsonify, send_from_directory
 from flask_cors import CORS
-import google.generativeai as genai
+from google import genai
+from google.genai import types as genai_types
 
 app = Flask(__name__, static_folder="static")
 CORS(app)
 
-# Configure Gemini
-genai.configure(api_key=os.environ.get("GEMINI_API_KEY", ""))
-
 MCP_SERVER_PATH = Path(__file__).parent / "mcp_server" / "server.py"
 
-SYSTEM_PROMPT = """You are Cleo, a smart and organized personal AI assistant.
+SYSTEM_PROMPT = """Sei Cleo, un'assistente AI personale intelligente, organizzata e conversazionale.
 
-You have access to the following tools via the MCP server:
+PERSONALITÀ ESSENZIALE:
+- Amichevole, utile, proattiva - NON ripetitiva, NON robotica
+- Ogni risposta deve essere DIVERSA dalla precedente, anche se l'argomento è simile
+- Varia completamente il tono, la lunghezza, l'approccio tra una risposta e l'altra
+- Sii sempre naturale, come una vera persona che conversa
 
-FILE SYSTEM: read_file, write_file, list_files, delete_file
-WEB SEARCH: web_search, fetch_url
-DATABASE (SQLite): db_query, db_execute, db_schema
-  Tables: notes, tasks, contacts
-EXTERNAL APIs: get_weather, get_datetime
+STRUMENTI (USALI ATTIVAMENTE):
+- FILE: read_file, write_file, list_files, delete_file
+- WEB: web_search, fetch_url (per cercare online)
+- DB: db_query, db_execute, db_schema (notes, tasks, contacts)
+- UTILITIES: get_weather, get_datetime
 
-Always use the appropriate tools to answer requests.
-Be proactive, helpful, and concise. Respond in the same language the user writes in.
+COMPORTAMENTO OBBLIGATORIO:
+1. Se chiedo informazioni che puoi cercare online → USA web_search SUBITO
+2. Se chiedo l'ora o meteo → USA gli strumenti appropriati
+3. Per limitazioni: Spiega DIVERSAMENTE ogni volta. Non usare mai la stessa frase due volte.
+4. Per suggerimenti: Proponi cose CREATIVE e DIVERSE, non formule standard
+5. Lunghezza: A volte breve, a volte lunga. A volte con emojis, a volte no. Varia!
+6. Stile: Alternare tra formale, casual, entusiasta, riflessivo, simpatico
+
+GRAMMATICA & LINGUA:
+- Rispondi SEMPRE in italiano
+- Usa contrazioni naturali (cioè, comunque, piuttosto che, ecc)
+- Sii colloquiale quando appropriato
+
+NON FARE MAI:
+- Ripetere la stessa struttura due volte di fila
+- Iniziare sempre allo stesso modo ("Mi dispiace che...", "Purtroppo...", "Ciao!")
+- Dare risposte template
+- Essere freddo o formale quando non serve
 """
 
-# Tool definitions for Gemini
 TOOL_DEFINITIONS = [
-    {"name": "read_file", "description": "Read the content of a file", "parameters": {"type": "object", "properties": {"filename": {"type": "string"}}, "required": ["filename"]}},
-    {"name": "write_file", "description": "Write or create a text file", "parameters": {"type": "object", "properties": {"filename": {"type": "string"}, "content": {"type": "string"}, "append": {"type": "boolean"}}, "required": ["filename", "content"]}},
-    {"name": "list_files", "description": "List files in the assistant folder", "parameters": {"type": "object", "properties": {}}},
-    {"name": "delete_file", "description": "Delete a file", "parameters": {"type": "object", "properties": {"filename": {"type": "string"}}, "required": ["filename"]}},
-    {"name": "web_search", "description": "Search the web using DuckDuckGo", "parameters": {"type": "object", "properties": {"query": {"type": "string"}, "max_results": {"type": "integer"}}, "required": ["query"]}},
-    {"name": "fetch_url", "description": "Fetch text content from a public web page", "parameters": {"type": "object", "properties": {"url": {"type": "string"}, "max_chars": {"type": "integer"}}, "required": ["url"]}},
-    {"name": "db_query", "description": "Run a SELECT query on the SQLite database", "parameters": {"type": "object", "properties": {"query": {"type": "string"}, "params": {"type": "array", "items": {"type": "string"}}}, "required": ["query"]}},
-    {"name": "db_execute", "description": "Run INSERT, UPDATE or DELETE on the database", "parameters": {"type": "object", "properties": {"query": {"type": "string"}, "params": {"type": "array", "items": {"type": "string"}}}, "required": ["query"]}},
-    {"name": "db_schema", "description": "Show the database table structure", "parameters": {"type": "object", "properties": {}}},
-    {"name": "get_weather", "description": "Get real-time weather for a city", "parameters": {"type": "object", "properties": {"city": {"type": "string"}, "latitude": {"type": "number"}, "longitude": {"type": "number"}}}},
-    {"name": "get_datetime", "description": "Get current date and time with timezone support", "parameters": {"type": "object", "properties": {"timezone": {"type": "string"}}}},
+    {"name": "read_file", "description": "Leggi il contenuto di un file", "parameters": {"type": "object", "properties": {"filename": {"type": "string"}}, "required": ["filename"]}},
+    {"name": "write_file", "description": "Scrivi o crea un file di testo", "parameters": {"type": "object", "properties": {"filename": {"type": "string"}, "content": {"type": "string"}, "append": {"type": "boolean"}}, "required": ["filename", "content"]}},
+    {"name": "list_files", "description": "Elenca i file nella cartella dell'assistente", "parameters": {"type": "object", "properties": {}}},
+    {"name": "delete_file", "description": "Elimina un file", "parameters": {"type": "object", "properties": {"filename": {"type": "string"}}, "required": ["filename"]}},
+    {"name": "web_search", "description": "Cerca sul web utilizzando DuckDuckGo", "parameters": {"type": "object", "properties": {"query": {"type": "string"}, "max_results": {"type": "integer"}}, "required": ["query"]}},
+    {"name": "fetch_url", "description": "Recupera il contenuto testuale da una pagina web pubblica", "parameters": {"type": "object", "properties": {"url": {"type": "string"}, "max_chars": {"type": "integer"}}, "required": ["url"]}},
+    {"name": "db_query", "description": "Esegui una query SELECT sul database SQLite", "parameters": {"type": "object", "properties": {"query": {"type": "string"}, "params": {"type": "array", "items": {"type": "string"}}}, "required": ["query"]}},
+    {"name": "db_execute", "description": "Esegui INSERT, UPDATE o DELETE sul database", "parameters": {"type": "object", "properties": {"query": {"type": "string"}, "params": {"type": "array", "items": {"type": "string"}}}, "required": ["query"]}},
+    {"name": "db_schema", "description": "Mostra la struttura delle tabelle del database", "parameters": {"type": "object", "properties": {}}},
+    {"name": "get_weather", "description": "Ottieni il meteo in tempo reale per una città", "parameters": {"type": "object", "properties": {"city": {"type": "string"}, "latitude": {"type": "number"}, "longitude": {"type": "number"}}}},
+    {"name": "get_datetime", "description": "Ottieni data e ora corrente con supporto per i fusi orari", "parameters": {"type": "object", "properties": {"timezone": {"type": "string"}}}},
 ]
 
-# Build Gemini tools format
-gemini_tools = [genai.protos.Tool(
-    function_declarations=[
-        genai.protos.FunctionDeclaration(
+gemini_tools = [
+    genai_types.Tool(function_declarations=[
+        genai_types.FunctionDeclaration(
             name=t["name"],
             description=t["description"],
-            parameters=genai.protos.Schema(
-                type=genai.protos.Type.OBJECT,
-                properties={
-                    k: genai.protos.Schema(
-                        type=genai.protos.Type.STRING if v.get("type") == "string"
-                             else genai.protos.Type.NUMBER if v.get("type") in ("number", "integer")
-                             else genai.protos.Type.BOOLEAN if v.get("type") == "boolean"
-                             else genai.protos.Type.ARRAY if v.get("type") == "array"
-                             else genai.protos.Type.STRING,
-                        description=v.get("description", "")
-                    )
-                    for k, v in t["parameters"].get("properties", {}).items()
-                },
-                required=t["parameters"].get("required", [])
-            )
+            parameters=t["parameters"]
         )
         for t in TOOL_DEFINITIONS
-    ]
-)]
+    ])
+]
 
-# Chat sessions (in-memory)
 chat_sessions: dict[str, list] = {}
 
 
 async def call_mcp_tool(tool_name: str, tool_input: dict) -> str:
-    """Call a tool on the MCP server via subprocess JSON-RPC."""
-    init_request = {"jsonrpc": "2.0", "id": 0, "method": "initialize", "params": {"protocolVersion": "2024-11-05", "capabilities": {}, "clientInfo": {"name": "flask-client", "version": "1.0"}}}
-    tool_request = {"jsonrpc": "2.0", "id": 1, "method": "tools/call", "params": {"name": tool_name, "arguments": tool_input}}
-
+    init_request = {
+        "jsonrpc": "2.0", "id": 0, "method": "initialize",
+        "params": {"protocolVersion": "2024-11-05", "capabilities": {}, "clientInfo": {"name": "flask-client", "version": "1.0"}}
+    }
+    tool_request = {
+        "jsonrpc": "2.0", "id": 1, "method": "tools/call",
+        "params": {"name": tool_name, "arguments": tool_input}
+    }
     process = subprocess.Popen(
         [sys.executable, str(MCP_SERVER_PATH)],
-        stdin=subprocess.PIPE,
-        stdout=subprocess.PIPE,
-        stderr=subprocess.PIPE
+        stdin=subprocess.PIPE, stdout=subprocess.PIPE, stderr=subprocess.PIPE
     )
-
     try:
         input_data = (
             json.dumps(init_request) + "\n" +
@@ -99,7 +102,6 @@ async def call_mcp_tool(tool_name: str, tool_input: dict) -> str:
             json.dumps(tool_request) + "\n"
         )
         stdout, _ = process.communicate(input=input_data.encode(), timeout=15)
-
         for line in stdout.decode().split("\n"):
             line = line.strip()
             if not line:
@@ -109,83 +111,100 @@ async def call_mcp_tool(tool_name: str, tool_input: dict) -> str:
                 if resp.get("id") == 1:
                     content = resp.get("result", {}).get("content", [])
                     if content:
-                        return content[0].get("text", "No result")
+                        return content[0].get("text", "Nessun risultato")
             except json.JSONDecodeError:
                 continue
-        return "Tool executed."
+        return "Strumento eseguito."
     except subprocess.TimeoutExpired:
         process.kill()
-        return f"Timeout calling '{tool_name}'"
+        return f"Timeout nella chiamata di '{tool_name}'"
     except Exception as e:
-        return f"Error: {str(e)}"
+        return f"Errore: {str(e)}"
     finally:
         process.terminate()
 
 
 async def run_with_gemini(session_id: str, user_message: str) -> str:
-    """Run Gemini with MCP tools in an agentic loop."""
-
+    client = genai.Client(api_key=os.environ.get("GEMINI_API_KEY", ""))
     if session_id not in chat_sessions:
         chat_sessions[session_id] = []
 
+    # Carica tutta la cronologia precedente
     history = chat_sessions[session_id].copy()
+    history.append({"role": "user", "parts": [{"text": user_message}]})
 
-    model = genai.GenerativeModel(
-        model_name="gemini-2.0-flash",
+    config = genai_types.GenerateContentConfig(
         system_instruction=SYSTEM_PROMPT,
         tools=gemini_tools,
+        tool_config=genai_types.ToolConfig(
+            function_calling_config=genai_types.FunctionCallingConfig(mode="AUTO")
+        ),
+        temperature=1.0,
+        top_p=0.95,
+        top_k=40
     )
 
-    chat = model.start_chat(history=history)
-
-    # Agentic loop
-    response = chat.send_message(user_message)
+    # Usa la cronologia completa
+    messages = history.copy()
 
     while True:
-        # Check for function calls
+        # Retry logic per generate_content
+        max_retries = 3
+        retry_delay = 2
+        
+        for attempt in range(max_retries):
+            try:
+                response = client.models.generate_content(
+                    model="gemini-2.5-flash",
+                    contents=messages,
+                    config=config
+                )
+                break
+            except Exception as e:
+                error_msg = str(e)
+                # Se è un errore di rate limit (429) o di quota
+                if "429" in error_msg or "RESOURCE_EXHAUSTED" in error_msg:
+                    if attempt < max_retries - 1:
+                        wait_time = retry_delay * (2 ** attempt)  # Exponential backoff
+                        print(f"⏳ Rate limit rilevato. Retry in {wait_time} secondi... (tentativo {attempt + 1}/{max_retries})")
+                        await asyncio.sleep(wait_time)
+                        continue
+                # Se è l'ultimo tentativo, rilancia l'errore
+                raise
+
         fn_calls = []
-        for part in response.parts:
-            if hasattr(part, "function_call") and part.function_call.name:
+        for part in response.candidates[0].content.parts:
+            if hasattr(part, "function_call") and part.function_call:
                 fn_calls.append(part.function_call)
 
         if not fn_calls:
+            final_text = ""
+            for part in response.candidates[0].content.parts:
+                if hasattr(part, "text") and part.text:
+                    final_text += part.text
             break
 
-        # Execute all tool calls
-        tool_responses = []
-        for fn_call in fn_calls:
-            tool_name = fn_call.name
-            tool_args = dict(fn_call.args)
-            result = await call_mcp_tool(tool_name, tool_args)
-            tool_responses.append(
-                genai.protos.Part(
-                    function_response=genai.protos.FunctionResponse(
-                        name=tool_name,
-                        response={"result": result}
-                    )
-                )
-            )
+        messages.append({"role": "model", "parts": [
+            {"function_call": {"name": fc.name, "args": dict(fc.args)}}
+            for fc in fn_calls
+        ]})
 
-        # Send tool results back
-        response = chat.send_message(tool_responses)
+        tool_result_parts = []
+        for fc in fn_calls:
+            result = await call_mcp_tool(fc.name, dict(fc.args))
+            tool_result_parts.append({
+                "function_response": {
+                    "name": fc.name,
+                    "response": {"result": result}
+                }
+            })
 
-    # Extract final text
-    final_text = ""
-    for part in response.parts:
-        if hasattr(part, "text") and part.text:
-            final_text += part.text
+        messages.append({"role": "user", "parts": tool_result_parts})
 
-    # Update session history
-    chat_sessions[session_id] = list(chat.history)
-    if len(chat_sessions[session_id]) > 20:
-        chat_sessions[session_id] = chat_sessions[session_id][-20:]
+    # Memorizza la cronologia completa (ultimi 20 scambi)
+    chat_sessions[session_id] = messages[-20:]
+    return final_text or "Nessuna risposta generata."
 
-    return final_text or "No response generated."
-
-
-# ─────────────────────────────────────────────
-# ROUTES
-# ─────────────────────────────────────────────
 
 @app.route("/")
 def index():
@@ -197,7 +216,7 @@ def chat():
     session_id = data.get("session_id", "default")
     user_message = data.get("message", "").strip()
     if not user_message:
-        return jsonify({"error": "Empty message"}), 400
+        return jsonify({"error": "Messaggio vuoto"}), 400
     try:
         response = asyncio.run(run_with_gemini(session_id, user_message))
         return jsonify({"response": response, "session_id": session_id})
@@ -210,12 +229,12 @@ def clear_session():
     session_id = data.get("session_id", "default")
     if session_id in chat_sessions:
         del chat_sessions[session_id]
-    return jsonify({"status": "cleared"})
+    return jsonify({"status": "cancellato"})
 
 @app.route("/api/health", methods=["GET"])
 def health():
     return jsonify({"status": "ok", "mcp_server": str(MCP_SERVER_PATH.exists())})
 
 if __name__ == "__main__":
-    print("🚀 Cleo avviato su http://localhost:5000")
-    app.run(debug=True, port=5000)
+    print("🚀 Cleo avviato su http://localhost:5001")
+    app.run(debug=True, port=5001)
