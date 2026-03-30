@@ -7,13 +7,14 @@ import asyncio
 import json
 import os
 import sqlite3
-import urllib.request
 import urllib.parse
+import urllib.request
 from datetime import datetime
 from pathlib import Path
+
+from mcp import types
 from mcp.server import Server
 from mcp.server.stdio import stdio_server
-from mcp import types
 
 app = Server("cleo")
 
@@ -26,7 +27,8 @@ DB_PATH = FILES_DIR / "cleo.db"
 def init_database():
     conn = sqlite3.connect(DB_PATH)
     cursor = conn.cursor()
-    cursor.executescript("""
+    cursor.executescript(
+        """
         CREATE TABLE IF NOT EXISTS notes (
             id INTEGER PRIMARY KEY AUTOINCREMENT,
             title TEXT NOT NULL,
@@ -50,9 +52,11 @@ def init_database():
             notes TEXT,
             created_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP
         );
-    """)
+    """
+    )
     conn.commit()
     conn.close()
+
 
 init_database()
 
@@ -60,27 +64,111 @@ init_database()
 @app.list_tools()
 async def list_tools() -> list[types.Tool]:
     return [
-        types.Tool(name="read_file", description="Read the content of a text file", inputSchema={"type": "object", "properties": {"filename": {"type": "string"}}, "required": ["filename"]}),
-        types.Tool(name="write_file", description="Write or create a text file", inputSchema={"type": "object", "properties": {"filename": {"type": "string"}, "content": {"type": "string"}, "append": {"type": "boolean"}}, "required": ["filename", "content"]}),
-        types.Tool(name="list_files", description="List files in the assistant folder", inputSchema={"type": "object", "properties": {}}),
-        types.Tool(name="delete_file", description="Delete a file", inputSchema={"type": "object", "properties": {"filename": {"type": "string"}}, "required": ["filename"]}),
-        types.Tool(name="web_search", description="Search the web using DuckDuckGo", inputSchema={"type": "object", "properties": {"query": {"type": "string"}, "max_results": {"type": "integer"}}, "required": ["query"]}),
-        types.Tool(name="fetch_url", description="Fetch text content from a public web page", inputSchema={"type": "object", "properties": {"url": {"type": "string"}, "max_chars": {"type": "integer"}}, "required": ["url"]}),
-        types.Tool(name="db_query", description="Run a SELECT query on the database", inputSchema={"type": "object", "properties": {"query": {"type": "string"}, "params": {"type": "array"}}, "required": ["query"]}),
-        types.Tool(name="db_execute", description="Run INSERT, UPDATE or DELETE on the database", inputSchema={"type": "object", "properties": {"query": {"type": "string"}, "params": {"type": "array"}}, "required": ["query"]}),
-        types.Tool(name="db_schema", description="Show the database table structure", inputSchema={"type": "object", "properties": {}}),
-        types.Tool(name="get_weather", description="Get real-time weather for a city", inputSchema={"type": "object", "properties": {"city": {"type": "string"}, "latitude": {"type": "number"}, "longitude": {"type": "number"}}}),
-        types.Tool(name="get_datetime", description="Get current date and time", inputSchema={"type": "object", "properties": {"timezone": {"type": "string"}}}),
+        types.Tool(
+            name="read_file",
+            description="Read the content of a text file",
+            inputSchema={
+                "type": "object",
+                "properties": {"filename": {"type": "string"}},
+                "required": ["filename"],
+            },
+        ),
+        types.Tool(
+            name="write_file",
+            description="Write or create a text file",
+            inputSchema={
+                "type": "object",
+                "properties": {
+                    "filename": {"type": "string"},
+                    "content": {"type": "string"},
+                    "append": {"type": "boolean"},
+                },
+                "required": ["filename", "content"],
+            },
+        ),
+        types.Tool(
+            name="list_files",
+            description="List files in the assistant folder",
+            inputSchema={"type": "object", "properties": {}},
+        ),
+        types.Tool(
+            name="delete_file",
+            description="Delete a file",
+            inputSchema={
+                "type": "object",
+                "properties": {"filename": {"type": "string"}},
+                "required": ["filename"],
+            },
+        ),
+        types.Tool(
+            name="web_search",
+            description="Search the web using DuckDuckGo",
+            inputSchema={
+                "type": "object",
+                "properties": {"query": {"type": "string"}, "max_results": {"type": "integer"}},
+                "required": ["query"],
+            },
+        ),
+        types.Tool(
+            name="fetch_url",
+            description="Fetch text content from a public web page",
+            inputSchema={
+                "type": "object",
+                "properties": {"url": {"type": "string"}, "max_chars": {"type": "integer"}},
+                "required": ["url"],
+            },
+        ),
+        types.Tool(
+            name="db_query",
+            description="Run a SELECT query on the database",
+            inputSchema={
+                "type": "object",
+                "properties": {"query": {"type": "string"}, "params": {"type": "array"}},
+                "required": ["query"],
+            },
+        ),
+        types.Tool(
+            name="db_execute",
+            description="Run INSERT, UPDATE or DELETE on the database",
+            inputSchema={
+                "type": "object",
+                "properties": {"query": {"type": "string"}, "params": {"type": "array"}},
+                "required": ["query"],
+            },
+        ),
+        types.Tool(
+            name="db_schema",
+            description="Show the database table structure",
+            inputSchema={"type": "object", "properties": {}},
+        ),
+        types.Tool(
+            name="get_weather",
+            description="Get real-time weather for a city",
+            inputSchema={
+                "type": "object",
+                "properties": {
+                    "city": {"type": "string"},
+                    "latitude": {"type": "number"},
+                    "longitude": {"type": "number"},
+                },
+            },
+        ),
+        types.Tool(
+            name="get_datetime",
+            description="Get current date and time",
+            inputSchema={"type": "object", "properties": {"timezone": {"type": "string"}}},
+        ),
     ]
 
 
 @app.call_tool()
 async def call_tool(name: str, arguments: dict) -> list[types.TextContent]:
-
     if name == "read_file":
         filepath = FILES_DIR / Path(arguments["filename"]).name
         if not filepath.exists():
-            return [types.TextContent(type="text", text=f"File '{arguments['filename']}' not found.")]
+            return [
+                types.TextContent(type="text", text=f"File '{arguments['filename']}' not found.")
+            ]
         return [types.TextContent(type="text", text=filepath.read_text(encoding="utf-8"))]
 
     elif name == "write_file":
@@ -88,18 +176,30 @@ async def call_tool(name: str, arguments: dict) -> list[types.TextContent]:
         append = arguments.get("append", False)
         existing = filepath.read_text(encoding="utf-8") if append and filepath.exists() else ""
         filepath.write_text(existing + arguments["content"], encoding="utf-8")
-        return [types.TextContent(type="text", text=f"File '{arguments['filename']}' written ({filepath.stat().st_size} bytes).")]
+        return [
+            types.TextContent(
+                type="text",
+                text=f"File '{arguments['filename']}' written ({filepath.stat().st_size} bytes).",
+            )
+        ]
 
     elif name == "list_files":
         files = list(FILES_DIR.iterdir())
         if not files:
             return [types.TextContent(type="text", text="No files found.")]
-        return [types.TextContent(type="text", text="\n".join(f"{f.name} ({f.stat().st_size}B)" for f in sorted(files)))]
+        return [
+            types.TextContent(
+                type="text",
+                text="\n".join(f"{f.name} ({f.stat().st_size}B)" for f in sorted(files)),
+            )
+        ]
 
     elif name == "delete_file":
         filepath = FILES_DIR / Path(arguments["filename"]).name
         if not filepath.exists():
-            return [types.TextContent(type="text", text=f"File '{arguments['filename']}' not found.")]
+            return [
+                types.TextContent(type="text", text=f"File '{arguments['filename']}' not found.")
+            ]
         filepath.unlink()
         return [types.TextContent(type="text", text=f"File '{arguments['filename']}' deleted.")]
 
@@ -117,7 +217,12 @@ async def call_tool(name: str, arguments: dict) -> list[types.TextContent]:
             for topic in data.get("RelatedTopics", [])[:max_results]:
                 if isinstance(topic, dict) and topic.get("Text"):
                     results.append(f"- {topic['Text']}\n  {topic.get('FirstURL', '')}")
-            return [types.TextContent(type="text", text="\n\n".join(results) if results else f"No results for '{query}'.")]
+            return [
+                types.TextContent(
+                    type="text",
+                    text="\n\n".join(results) if results else f"No results for '{query}'.",
+                )
+            ]
         except Exception as e:
             return [types.TextContent(type="text", text=f"Search error: {str(e)}")]
 
@@ -127,6 +232,7 @@ async def call_tool(name: str, arguments: dict) -> list[types.TextContent]:
             with urllib.request.urlopen(req, timeout=15) as resp:
                 raw = resp.read().decode("utf-8", errors="ignore")
             import re
+
             text = re.sub(r"<script[^>]*>.*?</script>", "", raw, flags=re.DOTALL)
             text = re.sub(r"<style[^>]*>.*?</style>", "", text, flags=re.DOTALL)
             text = re.sub(r"<[^>]+>", " ", text)
@@ -149,7 +255,11 @@ async def call_tool(name: str, arguments: dict) -> list[types.TextContent]:
             if not rows:
                 return [types.TextContent(type="text", text="No results.")]
             cols = rows[0].keys()
-            result = " | ".join(cols) + "\n" + "\n".join(" | ".join(str(row[c]) for c in cols) for row in rows)
+            result = (
+                " | ".join(cols)
+                + "\n"
+                + "\n".join(" | ".join(str(row[c]) for c in cols) for row in rows)
+            )
             return [types.TextContent(type="text", text=result)]
         except Exception as e:
             return [types.TextContent(type="text", text=f"SQL error: {str(e)}")]
@@ -204,7 +314,17 @@ async def call_tool(name: str, arguments: dict) -> list[types.TextContent]:
                 w = json.loads(resp.read().decode())
             c = w["current"]
             d = w["daily"]
-            wmo = {0: "Clear", 1: "Mostly clear", 2: "Partly cloudy", 3: "Overcast", 45: "Foggy", 61: "Rain", 71: "Snow", 80: "Showers", 95: "Thunderstorm"}
+            wmo = {
+                0: "Clear",
+                1: "Mostly clear",
+                2: "Partly cloudy",
+                3: "Overcast",
+                45: "Foggy",
+                61: "Rain",
+                71: "Snow",
+                80: "Showers",
+                95: "Thunderstorm",
+            }
             result = f"Weather in {city}:\n{c['temperature_2m']}°C, {wmo.get(c['weathercode'], str(c['weathercode']))}, Humidity: {c['relative_humidity_2m']}%, Wind: {c['wind_speed_10m']} km/h\n\nForecast:\n"
             for i in range(min(3, len(d["time"]))):
                 result += f"{d['time'][i]}: {d['temperature_2m_min'][i]}°C → {d['temperature_2m_max'][i]}°C, {wmo.get(d['weathercode'][i], '')}\n"
@@ -216,12 +336,20 @@ async def call_tool(name: str, arguments: dict) -> list[types.TextContent]:
         tz_name = arguments.get("timezone", "Europe/Rome")
         try:
             import zoneinfo
+
             tz = zoneinfo.ZoneInfo(tz_name)
             now = datetime.now(tz)
-            return [types.TextContent(type="text", text=f"Date: {now.strftime('%d/%m/%Y')}\nTime: {now.strftime('%H:%M:%S')}\nDay: {now.strftime('%A')}\nTimezone: {tz_name} (UTC{now.strftime('%z')})")]
+            return [
+                types.TextContent(
+                    type="text",
+                    text=f"Date: {now.strftime('%d/%m/%Y')}\nTime: {now.strftime('%H:%M:%S')}\nDay: {now.strftime('%A')}\nTimezone: {tz_name} (UTC{now.strftime('%z')})",
+                )
+            ]
         except Exception:
             now = datetime.utcnow()
-            return [types.TextContent(type="text", text=f"UTC: {now.strftime('%d/%m/%Y %H:%M:%S')}")]
+            return [
+                types.TextContent(type="text", text=f"UTC: {now.strftime('%d/%m/%Y %H:%M:%S')}")
+            ]
 
     return [types.TextContent(type="text", text=f"Unknown tool: {name}")]
 
@@ -229,6 +357,7 @@ async def call_tool(name: str, arguments: dict) -> list[types.TextContent]:
 async def main():
     async with stdio_server() as (read_stream, write_stream):
         await app.run(read_stream, write_stream, app.create_initialization_options())
+
 
 if __name__ == "__main__":
     asyncio.run(main())

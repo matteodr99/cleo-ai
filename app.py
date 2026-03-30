@@ -8,9 +8,9 @@ import json
 import os
 import subprocess
 import sys
-import time
 from pathlib import Path
-from flask import Flask, request, jsonify, send_from_directory
+
+from flask import Flask, jsonify, request, send_from_directory
 from flask_cors import CORS
 from google import genai
 from google.genai import types as genai_types
@@ -55,28 +55,119 @@ NON FARE MAI:
 """
 
 TOOL_DEFINITIONS = [
-    {"name": "read_file", "description": "Leggi il contenuto di un file", "parameters": {"type": "object", "properties": {"filename": {"type": "string"}}, "required": ["filename"]}},
-    {"name": "write_file", "description": "Scrivi o crea un file di testo", "parameters": {"type": "object", "properties": {"filename": {"type": "string"}, "content": {"type": "string"}, "append": {"type": "boolean"}}, "required": ["filename", "content"]}},
-    {"name": "list_files", "description": "Elenca i file nella cartella dell'assistente", "parameters": {"type": "object", "properties": {}}},
-    {"name": "delete_file", "description": "Elimina un file", "parameters": {"type": "object", "properties": {"filename": {"type": "string"}}, "required": ["filename"]}},
-    {"name": "web_search", "description": "Cerca sul web utilizzando DuckDuckGo", "parameters": {"type": "object", "properties": {"query": {"type": "string"}, "max_results": {"type": "integer"}}, "required": ["query"]}},
-    {"name": "fetch_url", "description": "Recupera il contenuto testuale da una pagina web pubblica", "parameters": {"type": "object", "properties": {"url": {"type": "string"}, "max_chars": {"type": "integer"}}, "required": ["url"]}},
-    {"name": "db_query", "description": "Esegui una query SELECT sul database SQLite", "parameters": {"type": "object", "properties": {"query": {"type": "string"}, "params": {"type": "array", "items": {"type": "string"}}}, "required": ["query"]}},
-    {"name": "db_execute", "description": "Esegui INSERT, UPDATE o DELETE sul database", "parameters": {"type": "object", "properties": {"query": {"type": "string"}, "params": {"type": "array", "items": {"type": "string"}}}, "required": ["query"]}},
-    {"name": "db_schema", "description": "Mostra la struttura delle tabelle del database", "parameters": {"type": "object", "properties": {}}},
-    {"name": "get_weather", "description": "Ottieni il meteo in tempo reale per una città", "parameters": {"type": "object", "properties": {"city": {"type": "string"}, "latitude": {"type": "number"}, "longitude": {"type": "number"}}}},
-    {"name": "get_datetime", "description": "Ottieni data e ora corrente con supporto per i fusi orari", "parameters": {"type": "object", "properties": {"timezone": {"type": "string"}}}},
+    {
+        "name": "read_file",
+        "description": "Leggi il contenuto di un file",
+        "parameters": {
+            "type": "object",
+            "properties": {"filename": {"type": "string"}},
+            "required": ["filename"],
+        },
+    },
+    {
+        "name": "write_file",
+        "description": "Scrivi o crea un file di testo",
+        "parameters": {
+            "type": "object",
+            "properties": {
+                "filename": {"type": "string"},
+                "content": {"type": "string"},
+                "append": {"type": "boolean"},
+            },
+            "required": ["filename", "content"],
+        },
+    },
+    {
+        "name": "list_files",
+        "description": "Elenca i file nella cartella dell'assistente",
+        "parameters": {"type": "object", "properties": {}},
+    },
+    {
+        "name": "delete_file",
+        "description": "Elimina un file",
+        "parameters": {
+            "type": "object",
+            "properties": {"filename": {"type": "string"}},
+            "required": ["filename"],
+        },
+    },
+    {
+        "name": "web_search",
+        "description": "Cerca sul web utilizzando DuckDuckGo",
+        "parameters": {
+            "type": "object",
+            "properties": {"query": {"type": "string"}, "max_results": {"type": "integer"}},
+            "required": ["query"],
+        },
+    },
+    {
+        "name": "fetch_url",
+        "description": "Recupera il contenuto testuale da una pagina web pubblica",
+        "parameters": {
+            "type": "object",
+            "properties": {"url": {"type": "string"}, "max_chars": {"type": "integer"}},
+            "required": ["url"],
+        },
+    },
+    {
+        "name": "db_query",
+        "description": "Esegui una query SELECT sul database SQLite",
+        "parameters": {
+            "type": "object",
+            "properties": {
+                "query": {"type": "string"},
+                "params": {"type": "array", "items": {"type": "string"}},
+            },
+            "required": ["query"],
+        },
+    },
+    {
+        "name": "db_execute",
+        "description": "Esegui INSERT, UPDATE o DELETE sul database",
+        "parameters": {
+            "type": "object",
+            "properties": {
+                "query": {"type": "string"},
+                "params": {"type": "array", "items": {"type": "string"}},
+            },
+            "required": ["query"],
+        },
+    },
+    {
+        "name": "db_schema",
+        "description": "Mostra la struttura delle tabelle del database",
+        "parameters": {"type": "object", "properties": {}},
+    },
+    {
+        "name": "get_weather",
+        "description": "Ottieni il meteo in tempo reale per una città",
+        "parameters": {
+            "type": "object",
+            "properties": {
+                "city": {"type": "string"},
+                "latitude": {"type": "number"},
+                "longitude": {"type": "number"},
+            },
+        },
+    },
+    {
+        "name": "get_datetime",
+        "description": "Ottieni data e ora corrente con supporto per i fusi orari",
+        "parameters": {"type": "object", "properties": {"timezone": {"type": "string"}}},
+    },
 ]
 
 gemini_tools = [
-    genai_types.Tool(function_declarations=[
-        genai_types.FunctionDeclaration(
-            name=t["name"],
-            description=t["description"],
-            parameters=t["parameters"]
-        )
-        for t in TOOL_DEFINITIONS
-    ])
+    genai_types.Tool(
+        function_declarations=[
+            genai_types.FunctionDeclaration(
+                name=t["name"],  # type: ignore[arg-type]
+                description=t["description"],  # type: ignore[arg-type]
+                parameters=t["parameters"],  # type: ignore[arg-type]
+            )
+            for t in TOOL_DEFINITIONS
+        ]
+    )
 ]
 
 chat_sessions: dict[str, list] = {}
@@ -84,22 +175,35 @@ chat_sessions: dict[str, list] = {}
 
 async def call_mcp_tool(tool_name: str, tool_input: dict) -> str:
     init_request = {
-        "jsonrpc": "2.0", "id": 0, "method": "initialize",
-        "params": {"protocolVersion": "2024-11-05", "capabilities": {}, "clientInfo": {"name": "flask-client", "version": "1.0"}}
+        "jsonrpc": "2.0",
+        "id": 0,
+        "method": "initialize",
+        "params": {
+            "protocolVersion": "2024-11-05",
+            "capabilities": {},
+            "clientInfo": {"name": "flask-client", "version": "1.0"},
+        },
     }
     tool_request = {
-        "jsonrpc": "2.0", "id": 1, "method": "tools/call",
-        "params": {"name": tool_name, "arguments": tool_input}
+        "jsonrpc": "2.0",
+        "id": 1,
+        "method": "tools/call",
+        "params": {"name": tool_name, "arguments": tool_input},
     }
     process = subprocess.Popen(
         [sys.executable, str(MCP_SERVER_PATH)],
-        stdin=subprocess.PIPE, stdout=subprocess.PIPE, stderr=subprocess.PIPE
+        stdin=subprocess.PIPE,
+        stdout=subprocess.PIPE,
+        stderr=subprocess.PIPE,
     )
     try:
         input_data = (
-            json.dumps(init_request) + "\n" +
-            json.dumps({"jsonrpc": "2.0", "method": "notifications/initialized", "params": {}}) + "\n" +
-            json.dumps(tool_request) + "\n"
+            json.dumps(init_request)
+            + "\n"
+            + json.dumps({"jsonrpc": "2.0", "method": "notifications/initialized", "params": {}})
+            + "\n"
+            + json.dumps(tool_request)
+            + "\n"
         )
         stdout, _ = process.communicate(input=input_data.encode(), timeout=15)
         for line in stdout.decode().split("\n"):
@@ -135,13 +239,13 @@ async def run_with_gemini(session_id: str, user_message: str) -> str:
 
     config = genai_types.GenerateContentConfig(
         system_instruction=SYSTEM_PROMPT,
-        tools=gemini_tools,
+        tools=gemini_tools,  # type: ignore[arg-type]
         tool_config=genai_types.ToolConfig(
-            function_calling_config=genai_types.FunctionCallingConfig(mode="AUTO")
+            function_calling_config=genai_types.FunctionCallingConfig(mode="AUTO")  # type: ignore[arg-type]
         ),
         temperature=1.0,
         top_p=0.95,
-        top_k=40
+        top_k=40,
     )
 
     # Usa la cronologia completa
@@ -151,13 +255,11 @@ async def run_with_gemini(session_id: str, user_message: str) -> str:
         # Retry logic per generate_content
         max_retries = 3
         retry_delay = 2
-        
+
         for attempt in range(max_retries):
             try:
                 response = client.models.generate_content(
-                    model="gemini-2.5-flash",
-                    contents=messages,
-                    config=config
+                    model="gemini-2.5-flash", contents=messages, config=config
                 )
                 break
             except Exception as e:
@@ -165,8 +267,10 @@ async def run_with_gemini(session_id: str, user_message: str) -> str:
                 # Se è un errore di rate limit (429) o di quota
                 if "429" in error_msg or "RESOURCE_EXHAUSTED" in error_msg:
                     if attempt < max_retries - 1:
-                        wait_time = retry_delay * (2 ** attempt)  # Exponential backoff
-                        print(f"⏳ Rate limit rilevato. Retry in {wait_time} secondi... (tentativo {attempt + 1}/{max_retries})")
+                        wait_time = retry_delay * (2**attempt)  # Exponential backoff
+                        print(
+                            f"⏳ Rate limit rilevato. Retry in {wait_time} secondi... (tentativo {attempt + 1}/{max_retries})"
+                        )
                         await asyncio.sleep(wait_time)
                         continue
                 # Se è l'ultimo tentativo, rilancia l'errore
@@ -184,20 +288,21 @@ async def run_with_gemini(session_id: str, user_message: str) -> str:
                     final_text += part.text
             break
 
-        messages.append({"role": "model", "parts": [
-            {"function_call": {"name": fc.name, "args": dict(fc.args)}}
-            for fc in fn_calls
-        ]})
+        messages.append(
+            {
+                "role": "model",
+                "parts": [
+                    {"function_call": {"name": fc.name, "args": dict(fc.args)}} for fc in fn_calls
+                ],
+            }
+        )
 
         tool_result_parts = []
         for fc in fn_calls:
             result = await call_mcp_tool(fc.name, dict(fc.args))
-            tool_result_parts.append({
-                "function_response": {
-                    "name": fc.name,
-                    "response": {"result": result}
-                }
-            })
+            tool_result_parts.append(
+                {"function_response": {"name": fc.name, "response": {"result": result}}}
+            )
 
         messages.append({"role": "user", "parts": tool_result_parts})
 
@@ -209,6 +314,7 @@ async def run_with_gemini(session_id: str, user_message: str) -> str:
 @app.route("/")
 def index():
     return send_from_directory("static", "index.html")
+
 
 @app.route("/api/chat", methods=["POST"])
 def chat():
@@ -223,6 +329,7 @@ def chat():
     except Exception as e:
         return jsonify({"error": str(e)}), 500
 
+
 @app.route("/api/clear", methods=["POST"])
 def clear_session():
     data = request.json
@@ -231,9 +338,11 @@ def clear_session():
         del chat_sessions[session_id]
     return jsonify({"status": "cancellato"})
 
+
 @app.route("/api/health", methods=["GET"])
 def health():
     return jsonify({"status": "ok", "mcp_server": str(MCP_SERVER_PATH.exists())})
+
 
 if __name__ == "__main__":
     print("🚀 Cleo avviato su http://localhost:5001")
