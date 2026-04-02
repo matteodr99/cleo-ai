@@ -109,7 +109,7 @@ class TestClearEndpoint:
         res = client.post("/api/clear", json={"session_id": "my-session"})
         assert res.status_code == 200
         data = res.get_json()
-        assert data["status"] == "cancellato"
+        assert data["status"] == "cleared"
         assert "my-session" not in cleo_app.chat_sessions
 
     def test_clear_nonexistent_session_is_safe(self, client):
