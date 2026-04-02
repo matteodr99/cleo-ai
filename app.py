@@ -20,44 +20,45 @@ CORS(app)
 
 MCP_SERVER_PATH = Path(__file__).parent / "mcp_server" / "server.py"
 
-SYSTEM_PROMPT = """Sei Cleo, un'assistente AI personale intelligente, organizzata e conversazionale.
+SYSTEM_PROMPT = """You are Cleo, an intelligent, organized, and conversational personal AI assistant.
 
-PERSONALITÀ ESSENZIALE:
-- Amichevole, utile, proattiva - NON ripetitiva, NON robotica
-- Ogni risposta deve essere DIVERSA dalla precedente, anche se l'argomento è simile
-- Varia completamente il tono, la lunghezza, l'approccio tra una risposta e l'altra
-- Sii sempre naturale, come una vera persona che conversa
+ESSENTIAL PERSONALITY:
+- Friendly, helpful, proactive - NOT repetitive, NOT robotic
+- Every response must be DIFFERENT from the previous one, even if the topic is similar
+- Vary the tone, length, and approach completely between responses
+- Always be natural, like a real person conversing
 
-STRUMENTI (USALI ATTIVAMENTE):
+TOOLS (USE THEM ACTIVELY):
 - FILE: read_file, write_file, list_files, delete_file
-- WEB: web_search, fetch_url (per cercare online)
+- WEB: web_search, fetch_url (to search online)
 - DB: db_query, db_execute, db_schema (notes, tasks, contacts)
 - UTILITIES: get_weather, get_datetime
 
-COMPORTAMENTO OBBLIGATORIO:
-1. Se chiedo informazioni che puoi cercare online → USA web_search SUBITO
-2. Se chiedo l'ora o meteo → USA gli strumenti appropriati
-3. Per limitazioni: Spiega DIVERSAMENTE ogni volta. Non usare mai la stessa frase due volte.
-4. Per suggerimenti: Proponi cose CREATIVE e DIVERSE, non formule standard
-5. Lunghezza: A volte breve, a volte lunga. A volte con emojis, a volte no. Varia!
-6. Stile: Alternare tra formale, casual, entusiasta, riflessivo, simpatico
+MANDATORY BEHAVIOR:
+1. If I ask for information you can search online → USE web_search IMMEDIATELY
+2. If I ask for time or weather → USE the appropriate tools
+3. For limitations: Explain DIFFERENTLY each time. Never use the same phrase twice.
+4. For suggestions: Propose CREATIVE and DIVERSE things, not standard formulas
+5. Length: Sometimes short, sometimes long. Sometimes with emojis, sometimes not. Vary!
+6. Style: Alternate between formal, casual, enthusiastic, reflective, friendly
 
-GRAMMATICA & LINGUA:
-- Rispondi SEMPRE in italiano
-- Usa contrazioni naturali (cioè, comunque, piuttosto che, ecc)
-- Sii colloquiale quando appropriato
+GRAMMAR & LANGUAGE:
+- Always respond in English
+- Use natural contractions (i.e., anyway, rather than, etc.)
+- Be colloquial when appropriate
 
-NON FARE MAI:
-- Ripetere la stessa struttura due volte di fila
-- Iniziare sempre allo stesso modo ("Mi dispiace che...", "Purtroppo...", "Ciao!")
-- Dare risposte template
-- Essere freddo o formale quando non serve
+NEVER DO:
+
+- Repeat the same structure twice in a row
+- Always start the same way ("I'm sorry that...", "Unfortunately...", "Hi!")
+- Give template responses
+- Be cold or formal when not needed
 """
 
 TOOL_DEFINITIONS = [
     {
         "name": "read_file",
-        "description": "Leggi il contenuto di un file",
+        "description": "Read the content of a file",
         "parameters": {
             "type": "object",
             "properties": {"filename": {"type": "string"}},
@@ -66,7 +67,7 @@ TOOL_DEFINITIONS = [
     },
     {
         "name": "write_file",
-        "description": "Scrivi o crea un file di testo",
+        "description": "Write or create a text file",
         "parameters": {
             "type": "object",
             "properties": {
@@ -79,12 +80,12 @@ TOOL_DEFINITIONS = [
     },
     {
         "name": "list_files",
-        "description": "Elenca i file nella cartella dell'assistente",
+        "description": "List files in the assistant folder",
         "parameters": {"type": "object", "properties": {}},
     },
     {
         "name": "delete_file",
-        "description": "Elimina un file",
+        "description": "Delete a file",
         "parameters": {
             "type": "object",
             "properties": {"filename": {"type": "string"}},
@@ -93,7 +94,7 @@ TOOL_DEFINITIONS = [
     },
     {
         "name": "web_search",
-        "description": "Cerca sul web utilizzando DuckDuckGo",
+        "description": "Search the web using DuckDuckGo",
         "parameters": {
             "type": "object",
             "properties": {"query": {"type": "string"}, "max_results": {"type": "integer"}},
@@ -102,7 +103,7 @@ TOOL_DEFINITIONS = [
     },
     {
         "name": "fetch_url",
-        "description": "Recupera il contenuto testuale da una pagina web pubblica",
+        "description": "Fetch text content from a public web page",
         "parameters": {
             "type": "object",
             "properties": {"url": {"type": "string"}, "max_chars": {"type": "integer"}},
@@ -111,7 +112,7 @@ TOOL_DEFINITIONS = [
     },
     {
         "name": "db_query",
-        "description": "Esegui una query SELECT sul database SQLite",
+        "description": "Run a SELECT query on the SQLite database",
         "parameters": {
             "type": "object",
             "properties": {
@@ -123,7 +124,7 @@ TOOL_DEFINITIONS = [
     },
     {
         "name": "db_execute",
-        "description": "Esegui INSERT, UPDATE o DELETE sul database",
+        "description": "Run INSERT, UPDATE or DELETE on the database",
         "parameters": {
             "type": "object",
             "properties": {
@@ -135,12 +136,12 @@ TOOL_DEFINITIONS = [
     },
     {
         "name": "db_schema",
-        "description": "Mostra la struttura delle tabelle del database",
+        "description": "Show the database table structure",
         "parameters": {"type": "object", "properties": {}},
     },
     {
         "name": "get_weather",
-        "description": "Ottieni il meteo in tempo reale per una città",
+        "description": "Get real-time weather for a city",
         "parameters": {
             "type": "object",
             "properties": {
@@ -152,7 +153,7 @@ TOOL_DEFINITIONS = [
     },
     {
         "name": "get_datetime",
-        "description": "Ottieni data e ora corrente con supporto per i fusi orari",
+        "description": "Get current date and time with timezone support",
         "parameters": {"type": "object", "properties": {"timezone": {"type": "string"}}},
     },
 ]
@@ -215,15 +216,15 @@ async def call_mcp_tool(tool_name: str, tool_input: dict) -> str:
                 if resp.get("id") == 1:
                     content = resp.get("result", {}).get("content", [])
                     if content:
-                        return content[0].get("text", "Nessun risultato")
+                        return content[0].get("text", "No results")
             except json.JSONDecodeError:
                 continue
-        return "Strumento eseguito."
+        return "Tool executed."
     except subprocess.TimeoutExpired:
         process.kill()
-        return f"Timeout nella chiamata di '{tool_name}'"
+        return f"Timeout in call to '{tool_name}'"
     except Exception as e:
-        return f"Errore: {str(e)}"
+        return f"Error: {str(e)}"
     finally:
         process.terminate()
 
@@ -233,7 +234,7 @@ async def run_with_gemini(session_id: str, user_message: str) -> str:
     if session_id not in chat_sessions:
         chat_sessions[session_id] = []
 
-    # Carica tutta la cronologia precedente
+    # Load all previous history
     history = chat_sessions[session_id].copy()
     history.append({"role": "user", "parts": [{"text": user_message}]})
 
@@ -248,11 +249,11 @@ async def run_with_gemini(session_id: str, user_message: str) -> str:
         top_k=40,
     )
 
-    # Usa la cronologia completa
+    # Use the complete history
     messages = history.copy()
 
     while True:
-        # Retry logic per generate_content
+        # Retry logic for generate_content
         max_retries = 3
         retry_delay = 2
 
@@ -264,16 +265,16 @@ async def run_with_gemini(session_id: str, user_message: str) -> str:
                 break
             except Exception as e:
                 error_msg = str(e)
-                # Se è un errore di rate limit (429) o di quota
+                # If it's a rate limit error (429) or quota
                 if "429" in error_msg or "RESOURCE_EXHAUSTED" in error_msg:
                     if attempt < max_retries - 1:
                         wait_time = retry_delay * (2**attempt)  # Exponential backoff
                         print(
-                            f"⏳ Rate limit rilevato. Retry in {wait_time} secondi... (tentativo {attempt + 1}/{max_retries})"
+                            f"⏳ Rate limit detected. Retry in {wait_time} seconds... (attempt {attempt + 1}/{max_retries})"
                         )
                         await asyncio.sleep(wait_time)
                         continue
-                # Se è l'ultimo tentativo, rilancia l'errore
+                # If it's the last attempt, re-raise the error
                 raise
 
         fn_calls = []
@@ -306,9 +307,9 @@ async def run_with_gemini(session_id: str, user_message: str) -> str:
 
         messages.append({"role": "user", "parts": tool_result_parts})
 
-    # Memorizza la cronologia completa (ultimi 20 scambi)
+    # Store the complete history (last 20 exchanges)
     chat_sessions[session_id] = messages[-20:]
-    return final_text or "Nessuna risposta generata."
+    return final_text or "No response generated."
 
 
 @app.route("/")
@@ -322,7 +323,7 @@ def chat():
     session_id = data.get("session_id", "default")
     user_message = data.get("message", "").strip()
     if not user_message:
-        return jsonify({"error": "Messaggio vuoto"}), 400
+        return jsonify({"error": "Empty message"}), 400
     try:
         response = asyncio.run(run_with_gemini(session_id, user_message))
         return jsonify({"response": response, "session_id": session_id})
@@ -336,7 +337,7 @@ def clear_session():
     session_id = data.get("session_id", "default")
     if session_id in chat_sessions:
         del chat_sessions[session_id]
-    return jsonify({"status": "cancellato"})
+    return jsonify({"status": "cleared"})
 
 
 @app.route("/api/health", methods=["GET"])
@@ -345,5 +346,5 @@ def health():
 
 
 if __name__ == "__main__":
-    print("🚀 Cleo avviato su http://localhost:5001")
+    print("🚀 Cleo started on http://localhost:5001")
     app.run(debug=True, port=5001)
