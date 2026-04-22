@@ -1,3 +1,8 @@
+# Main dependencies
+google-genai>=0.8.0
+mcp>=1.0.0
+flask>=3.0.0
+flask-cors>=4.0.0
 
 # Dev dependencies
 pre-commit>=3.7.0
