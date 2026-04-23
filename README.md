@@ -118,12 +118,18 @@ Three tables are created automatically on first run:
   source .venv/bin/activate
   ```
 
+- **uv** (optional but recommended) — install from [astral.sh/uv](https://astral.sh/uv):
+  ```bash
+  curl -LsSf https://astral.sh/uv/install.sh | sh  # macOS/Linux
+  # or: powershell -ExecutionPolicy ByPass -c "irm https://astral.sh/uv/install.ps1 | iex"  # Windows
+  ```
+
 - A **Gemini API key** — free at [aistudio.google.com](https://aistudio.google.com) → **Get API key**
 
 ### Step 1 — Clone the repo
 
 ```bash
-git clone https://github.com/YOUR_USERNAME/cleo-ai.git
+git clone https://github.com/matteodr99/cleo-ai.git
 cd cleo-ai
 ```
 
@@ -137,9 +143,17 @@ source .venv/bin/activate       # macOS / Linux
 
 ### Step 3 — Install dependencies
 
+Using **uv** (recommended — fast and deterministic):
+
 ```bash
-pip install -r requirements.txt
+uv sync
 ```
+
+Or using pip:
+```bash
+pip install -e .
+```
+
 
 ### Step 4 — Set your API key
 
@@ -182,13 +196,23 @@ Then open [http://localhost:5001](http://localhost:5001) in your browser.
 ```
 cleo-ai/
 ├── app.py                  # Flask backend — Gemini agentic loop
-├── requirements.txt        # Python dependencies
+├── pyproject.toml          # Project metadata & dependencies (PEP 517)
+├── requirements.txt        # Python dependencies (alternative)
+├── pytest.ini              # Pytest configuration
 ├── README.md
 ├── .gitignore
 ├── mcp_server/
+│   ├── __init__.py
 │   └── server.py           # MCP Server — all tool implementations
-└── static/
-    └── index.html          # Frontend — dark theme chat UI
+├── static/
+│   ├── index.html          # Frontend — dark theme chat UI
+│   ├── logo.svg
+│   └── favicon.ico
+└── tests/
+    ├── conftest.py
+    ├── test_api.py
+    ├── test_gemini_loop.py
+    └── test_mcp_tools.py
 ```
 
 ---
@@ -224,6 +248,18 @@ That's it. Gemini will automatically start using the new tool when relevant.
 - [ ] Export conversations to Markdown or PDF
 - [ ] Docker support for easy deployment
 - [ ] Support for additional AI models (OpenAI, Anthropic)
+
+---
+
+## 🤝 Contributing
+
+Contributions are welcome! Please open an issue or submit a pull request.
+
+---
+
+## 📝 License
+
+All Rights Reserved — See LICENSE file for details.
 
 ---
 
